@@ -1,0 +1,15 @@
+name: AWS Service CI/CD
+
+on:
+  push:
+    branches: [consig-*]
+
+jobs:
+  call-workflow-passing-data:
+    uses: consigai/sbc-outbound/.github/workflows/cdk-deploy.yml@consig-dev 
+    permissions:
+      actions: write
+      contents: read
+      id-token: write
+    with:
+      stack: sbcOutbound
