@@ -60,6 +60,13 @@ const {
   database: process.env.JAMBONES_MYSQL_DATABASE,
   connectionLimit: process.env.JAMBONES_MYSQL_CONNECTION_LIMIT || 10
 }, logger);
+// [consig] sbc-outbound historically had no Redis registration, so the jambonz feature server
+// could never discover it via the active-sip set. In a combined SBC deployment (inbound+outbound
+// on the same host) this was fine because sbc-inbound registered the shared IP. In a split
+// deployment (separate inbound and outbound ECS pools) the feature server roster would only
+// contain the inbound SBC and all outbound calls would fail with 480.
+// We add the same registration pattern that sbc-inbound uses so sbc-outbound is discoverable
+// regardless of deployment topology.
 const setName = `${(process.env.JAMBONES_CLUSTER_ID || 'default')}:active-sip`;
 
 const {
@@ -73,8 +80,8 @@ const {
   addKey,
   deleteKey,
   retrieveKey,
-  addToSet,
-  removeFromSet
+  addToSet,       // [consig] needed for Redis SBC discovery registration (see setName above)
+  removeFromSet   // [consig] needed for Redis SBC discovery cleanup on shutdown
 } = require('@jambonz/realtimedb-helpers')({}, logger);
 
 const activeCallIds = new Map();
@@ -151,11 +158,17 @@ if (process.env.DRACHTIO_HOST && !process.env.K8S) {
         logger.info(`sbc private address: ${hostport}`);
         srf.locals.privateSipAddress = hostport;
 
-        // Register in Redis so the feature server can discover this SBC for outbound routing
+        // [consig] Register this outbound SBC in the feature server's discovery set.
+        // The feature server watches default:active-sip in Redis to build its SBC roster
+        // and routes all outbound calls through the SBCs it finds there.
+        // In combined mode (inbound+outbound on same host) sbc-inbound already registers
+        // the same IP so Redis deduplicates — no behaviour change.
+        // In split mode (dedicated outbound pool) this is the only registration and ensures
+        // the feature server can find and use the outbound SBC.
         srf.locals.addToRedis = () => addToSet(setName, hostport);
         srf.locals.removeFromRedis = () => removeFromSet(setName, hostport);
         srf.locals.addToRedis();
-        logger.info(`registered sbc-outbound address in redis set ${setName}: ${hostport}`);
+        logger.info(`[consig] registered sbc-outbound in redis ${setName}: ${hostport}`);
 
         const reRegisterInterval = parseInt(process.env.SBC_RE_REGISTER_INTERVAL_MS) || 30000;
         srf.locals.reRegisterTimer = setInterval(() => {
@@ -287,6 +300,7 @@ process.on('SIGTERM', handle.bind(null));
 
 function handle(signal) {
   logger.info(`got signal ${signal}`);
+  // [consig] clean up Redis registration on shutdown
   if (srf.locals.reRegisterTimer) {
     clearInterval(srf.locals.reRegisterTimer);
   }
