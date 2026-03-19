@@ -60,6 +60,8 @@ const {
   database: process.env.JAMBONES_MYSQL_DATABASE,
   connectionLimit: process.env.JAMBONES_MYSQL_CONNECTION_LIMIT || 10
 }, logger);
+const setName = `${(process.env.JAMBONES_CLUSTER_ID || 'default')}:active-sip`;
+
 const {
   client: redisClient,
   createHash,
@@ -70,7 +72,9 @@ const {
   isMemberOfSet,
   addKey,
   deleteKey,
-  retrieveKey
+  retrieveKey,
+  addToSet,
+  removeFromSet
 } = require('@jambonz/realtimedb-helpers')({}, logger);
 
 const activeCallIds = new Map();
@@ -146,6 +150,17 @@ if (process.env.DRACHTIO_HOST && !process.env.K8S) {
         const hostport = `${arr[2]}:${arr[3]}`;
         logger.info(`sbc private address: ${hostport}`);
         srf.locals.privateSipAddress = hostport;
+
+        // Register in Redis so the feature server can discover this SBC for outbound routing
+        srf.locals.addToRedis = () => addToSet(setName, hostport);
+        srf.locals.removeFromRedis = () => removeFromSet(setName, hostport);
+        srf.locals.addToRedis();
+        logger.info(`registered sbc-outbound address in redis set ${setName}: ${hostport}`);
+
+        const reRegisterInterval = parseInt(process.env.SBC_RE_REGISTER_INTERVAL_MS) || 30000;
+        srf.locals.reRegisterTimer = setInterval(() => {
+          srf.locals.addToRedis();
+        }, reRegisterInterval);
       }
     }
   });
@@ -272,6 +287,12 @@ process.on('SIGTERM', handle.bind(null));
 
 function handle(signal) {
   logger.info(`got signal ${signal}`);
+  if (srf.locals.reRegisterTimer) {
+    clearInterval(srf.locals.reRegisterTimer);
+  }
+  if (srf.locals.privateSipAddress) {
+    removeFromSet(setName, srf.locals.privateSipAddress);
+  }
   if (process.env.K8S) {
     if (0 === activeCallIds.size) {
       logger.info('exiting immediately since we have no calls in progress');
