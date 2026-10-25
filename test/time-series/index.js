@@ -56,6 +56,16 @@ test('time-series: writers resolve while influx is down, then recover on new con
   t.end();
 });
 
+test('time-series: influx DNS name not resolving (no healthy task in Cloud Map) does not reject', async(t) => {
+  /* prod CA sbc-inbound crashed 5 times (Aug-Oct 2026) on getaddrinfo ENOTFOUND for the influx name */
+  const logger = makeLogger();
+  const ts = createTimeSeries(logger, {host: 'influxdb.consig-test.invalid', port: 8086, commitSize: 1});
+  await ts.writeCdrs(cdr());
+  await ts.writeCallCount({service_provider_sid: 'sp', account_sid: 'acct', calls_in_progress: 1});
+  t.ok(logger.warnings.some((w) => w.obj.err && w.obj.err.code === 'ENOTFOUND'), 'ENOTFOUND logged at warn');
+  t.end();
+});
+
 test('time-series: buffer is capped while influx is unreachable', async(t) => {
   const logger = makeLogger();
   const ts = createTimeSeries(logger, {host: '127.0.0.1', port: 18614, commitSize: 100, maxBuffer: 3});
