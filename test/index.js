@@ -1,3 +1,4 @@
+require('./time-series');
 require('./docker_start');
 require('./create-test-db');
 require('./sip-tests');

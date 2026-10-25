@@ -24,6 +24,7 @@
     "start": "node app",
     "test": "NODE_ENV=test HTTP_PORT=3050 JAMBONES_HOSTING=1 JAMBONES_NETWORK_CIDR=127.0.0.1/32 JAMBONES_MYSQL_HOST=127.0.0.1 JAMBONES_MYSQL_USER=jambones_test JAMBONES_MYSQL_PASSWORD=jambones_test JAMBONES_MYSQL_DATABASE=jambones_test JAMBONES_REDIS_HOST=localhost JAMBONES_REDIS_PORT=16379 JAMBONES_TIME_SERIES_HOST=127.0.0.1 JAMBONES_LOGLEVEL=error DRACHTIO_SECRET=cymru DRACHTIO_HOST=127.0.0.1 DRACHTIO_PORT=9060 JAMBONES_RTPENGINES=127.0.0.1:12222 node test/ ",
     "coverage": "./node_modules/.bin/nyc --reporter html --report-dir ./coverage npm run test",
+    "test:time-series": "node test/time-series",
     "jslint": "eslint app.js lib --fix"
   },
   "dependencies": {
@@ -35,12 +36,12 @@
     "@jambonz/rtpengine-utils": "^0.4.4",
     "@jambonz/siprec-client-utils": "^0.2.10",
     "@jambonz/stats-collector": "^0.1.10",
-    "@jambonz/time-series": "^0.2.10",
     "cidr-matcher": "^2.1.1",
     "debug": "^4.4.3",
     "drachtio-fn-b2b-sugar": "^0.2.1",
     "drachtio-srf": "^5.0.12",
     "express": "^4.21.2",
+    "influx": "^5.9.3",
     "pino": "^10.1.0",
     "sdp-transform": "^2.15.0"
   },
