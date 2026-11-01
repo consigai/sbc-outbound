@@ -89,6 +89,8 @@ const {
   addToSet,       // [consig] needed for Redis SBC discovery registration (see setName above)
   removeFromSet   // [consig] needed for Redis SBC discovery cleanup on shutdown
 } = require('@jambonz/realtimedb-helpers')({}, logger);
+/* consigai/consig-cdk-jam#155: reconnect to the new primary after a Valkey failover */
+require('./lib/redis-failover').followFailover(redisClient, logger);
 
 const activeCallIds = new Map();
 const Emitter = require('events');
