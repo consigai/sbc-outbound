@@ -6,7 +6,7 @@ on:
 
 jobs:
   call-workflow-passing-data:
-    uses: consigai/sbc-outbound/.github/workflows/cdk-deploy.yml@consig-dev 
+    uses: ./.github/workflows/cdk-deploy.yml 
     permissions:
       actions: write
       contents: read
